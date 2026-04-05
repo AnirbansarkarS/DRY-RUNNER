@@ -6,6 +6,7 @@ export interface StepInfo {
   variables: Record<string, any>;
   arrays: Record<string, any[]>;
   highlights: Record<string, any>;
+  stack: any[];
 }
 
 export class Interpreter {
@@ -38,7 +39,7 @@ export class Interpreter {
       }
     }
 
-    this.steps.push({ line, description, variables, arrays, highlights });
+    this.steps.push({ line, description, variables, arrays, highlights, stack: [] });
   }
 
   private execute(node: AST.ASTNode): any {

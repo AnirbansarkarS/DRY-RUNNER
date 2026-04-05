@@ -1,73 +1,48 @@
-# React + TypeScript + Vite
+# Dry-Runner
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An interactive, step-by-step algorithm visualizer and custom interpreter. Write Python-like code, compile it into an Abstract Syntax Tree (AST), and watch the engine execute your code line-by-line while visualizing updates!
 
-Currently, two official plugins are available:
+## 🚀 What's Done (Phases 1-6)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Phase 1: Target Language Subset**
+  - Custom subset of Python-like syntax (indentation-based blocks).
+  - Supports numbers, strings, variable assignments, arrays, arithmetic (`+`, `-`, `*`, `/`, `//`, `%`), comparisons (`<`, `>`, `==`, `!=`), `if / else`, `while`, and `for ... in range(...)`.
+  - Multi-assignment / swap support.
 
-## React Compiler
+- **Phase 2: Lexer (src/core/Lexer.ts)**
+  - Tokenizes raw string inputs into structured formats.
+  - Handles indentation-based scoping (INDENT and DEDENT tokens).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Phase 3: Parser (src/core/Parser.ts)**
+  - Recursive descent parser that consumes tokens to build an Abstract Syntax Tree (AST).
+  - Enforces correct mathematical operator precedence.
 
-## Expanding the ESLint configuration
+- **Phase 4: Interpreter (src/core/Interpreter.ts)**
+  - Evaluates the AST node by node and manages local variable scope.
+  - Records individual state snapshots dynamically.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **Phase 5: Highlights Engine**
+  - Hooks directly into the interpreter's assignment parsing.
+  - Tracking array mutations, multi-assignment swaps, and comparisons.
+  - Generates coordinate highlight metadata to push into snapshot blocks.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **Phase 6: The UI Renderer**
+  - Built completely in React + Vite + TypeScript.
+  - **Code Viewer**: Syncs internal interpreter line tracker visibly.
+  - **Variables Table** & **Array Visualizer**.
+  - **Execution History**: Move forwards/backwards through time.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 🚧 What's Next
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- **Animations & Transitions**
+- **Auto-Play/Playback Controls**
+- **Function Calls & Call Stack Visualization**
+- **Algorithm Snippet Library**
+- **Robust Error Contexts**
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🛠️ How to run locally
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
