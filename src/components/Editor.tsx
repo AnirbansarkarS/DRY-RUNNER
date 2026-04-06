@@ -4,39 +4,103 @@ import { Parser } from '../core/Parser';
 import { Interpreter, type StepInfo } from '../core/Interpreter';
 import { Renderer } from './Renderer';
 
-export const Editor: React.FC = () => {
-  const [code, setCode] = useState<string>([
+export type Language = 'pseudocode' | 'c' | 'cpp' | 'java' | 'python';
+
+const DEFAULT_CODE: Record<Language, string> = {
+  pseudocode: [
     "arr = [3, 1, 2]",
     "for i in range(3):",
     "    for j in range(2):",
     "        if arr[j] > arr[j+1]:",
     "            arr[j], arr[j+1] = arr[j+1], arr[j]"
-  ].join('\n'));
+  ].join('\n'),
+  c: '#include <stdio.h>\n\nint main() {\n    printf("Hello, World from C!\\n");\n    return 0;\n}',
+  cpp: '#include <iostream>\n\nint main() {\n    std::cout << "Hello, World from C++!\\n";\n    return 0;\n}',
+  java: 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, World from Java!");\n    }\n}',
+  python: 'print("Hello, World from Python!")'
+};
 
-  const [mode, setMode] = useState<'edit' | 'play'>('edit');
+export const Editor: React.FC = () => {
+  const [language, setLanguage] = useState<Language>('pseudocode');
+  const [code, setCode] = useState<string>(DEFAULT_CODE.pseudocode);
+
+  const [mode, setMode] = useState<'edit' | 'play' | 'output'>('edit');
   const [steps, setSteps] = useState<StepInfo[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [error, setError] = useState('');
+  
+  const [executionOutput, setExecutionOutput] = useState<string>('');
+  const [isRunning, setIsRunning] = useState(false);
 
-  const handleRun = () => {
-    try {
-      setError('');
-      const lexer = new Lexer(code);
-      const parsedTokens = lexer.tokenize();
-      const parser = new Parser(parsedTokens);
-      const parsedAst = parser.parse();
-      const interpreter = new Interpreter(parsedAst);
-      const execSteps = interpreter.run();
-      setSteps(execSteps);
-      setCurrentStepIndex(0);
-      if (execSteps.length > 0) {
-        setMode('play');
-      } else {
-        setError('No steps generated.');
+  const compilerMap: Record<Language, string> = {
+    pseudocode: 'pseudocode',
+    c: 'gcc-15',
+    cpp: 'g++-15',
+    java: 'openjdk-25',
+    python: 'python-3.14'
+  };
+
+  const handleRun = async () => {
+    if (language === 'pseudocode') {
+      try {
+        setError('');
+        const lexer = new Lexer(code);
+        const parsedTokens = lexer.tokenize();
+        const parser = new Parser(parsedTokens);
+        const parsedAst = parser.parse();
+        const interpreter = new Interpreter(parsedAst);
+        const execSteps = interpreter.run();
+        setSteps(execSteps);
+        setCurrentStepIndex(0);
+        if (execSteps.length > 0) {
+          setMode('play');
+        } else {
+          setError('No steps generated.');
+        }
+      } catch (err: any) {
+        setError('Error: ' + err.message);
       }
-    } catch (err: any) {
-      setError('Error: ' + err.message);
+    } else {
+      // Execute via OnlineCompiler API for real languages
+      setIsRunning(true);
+      setError('');
+      setExecutionOutput('');
+      try {
+        const response = await fetch('/api/onlinecompiler/api/run-code-sync/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': '7c16e05759557dae364c54c425b9fd3f'
+          },
+          body: JSON.stringify({
+            compiler: compilerMap[language],
+            code: code,
+            input: ''
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.output !== undefined || data.error !== undefined) {
+          const combined = [data.output, data.error].filter(Boolean).join('\n');
+          setExecutionOutput(combined || 'No output');
+          setMode('output');
+        } else {
+          setError('Failed to execute code: ' + (data.message || JSON.stringify(data) || 'Unknown error'));
+        }
+      } catch (err: any) {
+        setError('Execution Request Failed: ' + err.message);
+      } finally {
+        setIsRunning(false);
+      }
     }
+  };
+
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLang = e.target.value as Language;
+    setLanguage(newLang);
+    setCode(DEFAULT_CODE[newLang]);
+    setError('');
   };
 
   const currentStep = steps[currentStepIndex];
@@ -47,7 +111,23 @@ export const Editor: React.FC = () => {
       
       {mode === 'edit' ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem', padding: '2rem' }}>
-          <h2 style={{ fontFamily: 'sans-serif' }}>Dry-Runner Editor</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ fontFamily: 'sans-serif', margin: 0 }}>Dry-Runner Editor</h2>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <label style={{ fontFamily: 'sans-serif', fontSize: '1.1rem' }}>Language: </label>
+              <select 
+                value={language} 
+                onChange={handleLanguageChange}
+                style={{ padding: '0.5rem', fontSize: '1.1rem', borderRadius: '4px', backgroundColor: '#333', color: '#fff', border: '1px solid #555' }}
+              >
+                <option value="pseudocode">Pseudocode (Dry-Run)</option>
+                <option value="c">C</option>
+                <option value="cpp">C++</option>
+                <option value="java">Java</option>
+                <option value="python">Python</option>
+              </select>
+            </div>
+          </div>
           <textarea
             value={code}
             onChange={(e) => setCode(e.target.value)}
@@ -55,10 +135,33 @@ export const Editor: React.FC = () => {
           />
           <button 
             onClick={handleRun}
-            style={{ padding: '1rem', fontSize: '18px', cursor: 'pointer', backgroundColor: '#4caf50', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}
+            disabled={isRunning}
+            style={{ padding: '1rem', fontSize: '18px', cursor: isRunning ? 'not-allowed' : 'pointer', backgroundColor: '#4caf50', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', opacity: isRunning ? 0.7 : 1 }}
           >
-            Run Dry-Run
+            {isRunning ? 'Running...' : language === 'pseudocode' ? 'Run Dry-Run' : 'Execute Code'}
           </button>
+        </div>
+      ) : mode === 'output' ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ padding: '1rem', backgroundColor: '#1e1e1e', borderBottom: '1px solid #333', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <button onClick={() => setMode('edit')} style={{ padding: '0.5rem 1rem', cursor: 'pointer', backgroundColor: '#555', color: '#fff', border: 'none', borderRadius: '4px' }}>← Back to Editor</button>
+            <h2 style={{ fontFamily: 'sans-serif', margin: '0 0 0 1rem', fontSize: '1.5rem' }}>Execution Output</h2>
+          </div>
+          <div style={{ flex: 1, padding: '2rem', overflowY: 'auto', backgroundColor: '#121212' }}>
+            <div style={{ 
+              padding: '1.5rem', 
+              fontSize: '18px', 
+              fontFamily: 'monospace', 
+              borderRadius: '8px', 
+              border: '1px solid #555', 
+              backgroundColor: '#1e1e1e', 
+              color: '#d4d4d4', 
+              whiteSpace: 'pre-wrap', 
+              minHeight: '200px' 
+            }}>
+              {executionOutput || <span style={{ color: '#888' }}>No output produced...</span>}
+            </div>
+          </div>
         </div>
       ) : (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -116,3 +219,4 @@ export const Editor: React.FC = () => {
     </div>
   );
 };
+
