@@ -21,17 +21,17 @@ export const Renderer: React.FC<RendererProps> = ({ step }) => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', fontFamily: 'sans-serif', transition: 'all 0.3s ease' }}>
       
       {/* 1. Description Bar */}
-      <div style={{ padding: '1rem', backgroundColor: '#3c3c3c', borderRadius: '4px', fontSize: '1.2rem', color: '#fff', borderLeft: '4px solid #4caf50' }}>
+      <div style={{ padding: '1rem', backgroundColor: '#3c3c3c', borderRadius: '4px', fontSize: '1.2rem', color: '#fff', borderLeft: '4px solid #4caf50', transition: 'all 0.3s ease' }}>
         <strong>Step {step.line}:</strong> {step.description}
       </div>
 
       <div style={{ display: 'flex', gap: '2rem' }}>
         
         {/* 2. Variables Table */}
-        <div style={{ flex: 1, backgroundColor: '#1e1e1e', padding: '1.5rem', borderRadius: '8px' }}>
+        <div style={{ flex: 1, backgroundColor: '#1e1e1e', padding: '1.5rem', borderRadius: '8px', transition: 'all 0.3s ease' }}>
           <h3 style={{ marginTop: 0, color: '#f8f8f2' }}>Variables</h3>
           {Object.keys(step.variables).length === 0 ? <p style={{color: '#888'}}>No variables</p> : (
             <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: '1.1rem' }}>
@@ -43,7 +43,7 @@ export const Renderer: React.FC<RendererProps> = ({ step }) => {
               </thead>
               <tbody>
                 {Object.entries(step.variables).map(([key, val]) => (
-                  <tr key={key} style={{ borderBottom: '1px solid #333' }}>
+                  <tr key={key} style={{ borderBottom: '1px solid #333', transition: 'all 0.3s ease' }}>
                     <td style={{ padding: '0.5rem', color: '#9cdcfe' }}>{key}</td>
                     <td style={{ padding: '0.5rem', color: '#b5cea8' }}>{JSON.stringify(val)}</td>
                   </tr>
@@ -54,7 +54,7 @@ export const Renderer: React.FC<RendererProps> = ({ step }) => {
         </div>
 
         {/* 3. Array Grids with Colored Cells */}
-        <div style={{ flex: 2, backgroundColor: '#1e1e1e', padding: '1.5rem', borderRadius: '8px' }}>
+        <div style={{ flex: 2, backgroundColor: '#1e1e1e', padding: '1.5rem', borderRadius: '8px', transition: 'all 0.3s ease' }}>
           <h3 style={{ marginTop: 0, color: '#f8f8f2' }}>Arrays</h3>
           {Object.keys(step.arrays).length === 0 ? <p style={{color: '#888'}}>No arrays</p> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -62,25 +62,31 @@ export const Renderer: React.FC<RendererProps> = ({ step }) => {
                 <div key={key}>
                   <div style={{ marginBottom: '0.5rem', color: '#9cdcfe', fontWeight: 'bold', fontFamily: 'monospace' }}>{key} = </div>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    {arr.map((val, idx) => (
-                      <div 
-                        key={idx}
-                        style={{
-                          width: '50px', height: '50px',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          backgroundColor: getHighlightColor(key, idx) || '#2d2d2d',
-                          border: '2px solid #555',
-                          borderRadius: '6px',
-                          color: '#dcdcaa',
-                          fontSize: '1.2rem',
-                          fontWeight: 'bold',
-                          fontFamily: 'monospace',
-                          transition: 'background-color 0.3s ease'
-                        }}
-                      >
-                        {JSON.stringify(val)}
-                      </div>
-                    ))}
+                    {arr.map((val, idx) => {
+                      const hc = getHighlightColor(key, idx);
+                      return (
+                        <div 
+                          key={idx}
+                          style={{
+                            width: '50px', height: '50px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            backgroundColor: hc || '#2d2d2d',
+                            border: '2px solid #555',
+                            borderRadius: '6px',
+                            color: '#dcdcaa',
+                            fontSize: '1.2rem',
+                            fontWeight: 'bold',
+                            fontFamily: 'monospace',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            transform: hc ? 'scale(1.15)' : 'scale(1)',
+                            zIndex: hc ? 10 : 1,
+                            boxShadow: hc ? '0 4px 12px rgba(0,0,0,0.3)' : 'none'
+                          }}
+                        >
+                          {JSON.stringify(val)}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               ))}

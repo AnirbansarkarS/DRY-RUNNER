@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lexer } from '../core/Lexer';
 import { Parser } from '../core/Parser';
 import { Interpreter, type StepInfo } from '../core/Interpreter';
+import { roughTranslateToPseudocode } from '../core/Translator';
 import { Renderer } from './Renderer';
 
 export type Language = 'pseudocode' | 'c' | 'cpp' | 'java' | 'python';
@@ -14,10 +15,10 @@ const DEFAULT_CODE: Record<Language, string> = {
     "        if arr[j] > arr[j+1]:",
     "            arr[j], arr[j+1] = arr[j+1], arr[j]"
   ].join('\n'),
-  c: '#include <stdio.h>\n\nint main() {\n    printf("Hello, World from C!\\n");\n    return 0;\n}',
-  cpp: '#include <iostream>\n\nint main() {\n    std::cout << "Hello, World from C++!\\n";\n    return 0;\n}',
-  java: 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, World from Java!");\n    }\n}',
-  python: 'print("Hello, World from Python!")'
+  c: '#include <stdio.h>\n\nint main() {\n    int arr[] = {3, 1, 2};\n    for (int i = 0; i < 3; i++) {\n        for (int j = 0; j < 2; j++) {\n            if (arr[j] > arr[j+1]) {\n                int temp = arr[j];\n                arr[j] = arr[j+1];\n                arr[j+1] = temp;\n            }\n        }\n    }\n    return 0;\n}',
+  cpp: '#include <iostream>\n\nint main() {\n    int arr[] = {3, 1, 2};\n    for (int i = 0; i < 3; i++) {\n        for (int j = 0; j < 2; j++) {\n            if (arr[j] > arr[j+1]) {\n                int temp = arr[j];\n                arr[j] = arr[j+1];\n                arr[j+1] = temp;\n            }\n        }\n    }\n    return 0;\n}',
+  java: 'public class Main {\n    public static void main(String[] args) {\n        int[] arr = {3, 1, 2};\n        for (int i = 0; i < 3; i++) {\n            for (int j = 0; j < 2; j++) {\n                if (arr[j] > arr[j+1]) {\n                    int temp = arr[j];\n                    arr[j] = arr[j+1];\n                    arr[j+1] = temp;\n                }\n            }\n        }\n    }\n}',
+  python: 'arr = [3, 1, 2]\nfor i in range(3):\n    for j in range(2):\n        if arr[j] > arr[j+1]:\n            arr[j], arr[j+1] = arr[j+1], arr[j]'
 };
 
 export const Editor: React.FC = () => {
@@ -31,6 +32,26 @@ export const Editor: React.FC = () => {
   
   const [executionOutput, setExecutionOutput] = useState<string>('');
   const [isRunning, setIsRunning] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(500); // ms per step
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isPlaying && mode === 'play' && steps.length > 0) {
+      interval = setInterval(() => {
+        setCurrentStepIndex(c => {
+          if (c >= steps.length - 1) {
+            setIsPlaying(false);
+            return c;
+          }
+          return c + 1;
+        });
+      }, playbackSpeed);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isPlaying, playbackSpeed, mode, steps.length]);
 
   const compilerMap: Record<Language, string> = {
     pseudocode: 'pseudocode',
@@ -41,58 +62,37 @@ export const Editor: React.FC = () => {
   };
 
   const handleRun = async () => {
-    if (language === 'pseudocode') {
+    let codeToRun = code;
+    if (language !== 'pseudocode') {
       try {
-        setError('');
-        const lexer = new Lexer(code);
-        const parsedTokens = lexer.tokenize();
-        const parser = new Parser(parsedTokens);
-        const parsedAst = parser.parse();
-        const interpreter = new Interpreter(parsedAst);
-        const execSteps = interpreter.run();
-        setSteps(execSteps);
-        setCurrentStepIndex(0);
-        if (execSteps.length > 0) {
-          setMode('play');
-        } else {
-          setError('No steps generated.');
-        }
+        const translated = roughTranslateToPseudocode(code, language);
+        setCode(translated);
+        setLanguage('pseudocode');
+        codeToRun = translated;
       } catch (err: any) {
-        setError('Error: ' + err.message);
+        setError('Translation failed! Please convert to Pseudocode manually. ' + err.message);
+        return;
       }
-    } else {
-      // Execute via OnlineCompiler API for real languages
-      setIsRunning(true);
+    }
+
+    try {
       setError('');
-      setExecutionOutput('');
-      try {
-        const response = await fetch('/api/onlinecompiler/api/run-code-sync/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': '7c16e05759557dae364c54c425b9fd3f'
-          },
-          body: JSON.stringify({
-            compiler: compilerMap[language],
-            code: code,
-            input: ''
-          })
-        });
-        
-        const data = await response.json();
-        
-        if (data.output !== undefined || data.error !== undefined) {
-          const combined = [data.output, data.error].filter(Boolean).join('\n');
-          setExecutionOutput(combined || 'No output');
-          setMode('output');
-        } else {
-          setError('Failed to execute code: ' + (data.message || JSON.stringify(data) || 'Unknown error'));
-        }
-      } catch (err: any) {
-        setError('Execution Request Failed: ' + err.message);
-      } finally {
-        setIsRunning(false);
+      const lexer = new Lexer(codeToRun);
+      const parsedTokens = lexer.tokenize();
+      const parser = new Parser(parsedTokens);
+      const parsedAst = parser.parse();
+      const interpreter = new Interpreter(parsedAst);
+      const execSteps = interpreter.run();
+      setSteps(execSteps);
+      setCurrentStepIndex(0);
+      setIsPlaying(true);
+      if (execSteps.length > 0) {
+        setMode('play');
+      } else {
+        setError('No steps generated.');
       }
+    } catch (err: any) {
+      setError('Dry-Run Error: ' + err.message + '\n(Attempted simplified translation may not be fully supported)');
     }
   };
 
@@ -170,15 +170,30 @@ export const Editor: React.FC = () => {
             <div style={{ flex: 1 }} />
             <button 
               disabled={currentStepIndex === 0} 
-              onClick={() => setCurrentStepIndex(c => Math.max(0, c - 1))}
+              onClick={() => { setIsPlaying(false); setCurrentStepIndex(c => Math.max(0, c - 1)); }}
               style={{ padding: '0.5rem 1.5rem', cursor: 'pointer', fontSize: '16px', backgroundColor: currentStepIndex === 0 ? '#333' : '#007bff', color: currentStepIndex === 0 ? '#666' : '#fff', border: 'none', borderRadius: '4px' }}
             >
               Prev Step
             </button>
+            <button
+              onClick={() => setIsPlaying(!isPlaying)}
+              style={{ padding: '0.5rem 1.5rem', cursor: 'pointer', fontSize: '16px', backgroundColor: isPlaying ? '#ff9800' : '#4caf50', color: '#fff', border: 'none', borderRadius: '4px' }}
+            >
+              {isPlaying ? 'Pause' : 'Play'}
+            </button>
+            <select
+              value={playbackSpeed}
+              onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
+              style={{ padding: '0.5rem', borderRadius: '4px', backgroundColor: '#333', color: '#fff', border: '1px solid #555' }}
+            >
+              <option value="1000">1x speed</option>
+              <option value="500">2x speed</option>
+              <option value="250">4x speed</option>
+            </select>
             <span style={{ color: '#fff', fontSize: '1.2rem', fontFamily: 'sans-serif', margin: '0 1rem' }}>Step {currentStepIndex + 1} / {steps.length}</span>
             <button 
               disabled={currentStepIndex === steps.length - 1} 
-              onClick={() => setCurrentStepIndex(c => Math.min(steps.length - 1, c + 1))}
+              onClick={() => { setIsPlaying(false); setCurrentStepIndex(c => Math.min(steps.length - 1, c + 1)); }}
               style={{ padding: '0.5rem 1.5rem', cursor: 'pointer', fontSize: '16px', backgroundColor: currentStepIndex === steps.length - 1 ? '#333' : '#007bff', color: currentStepIndex === steps.length - 1 ? '#666' : '#fff', border: 'none', borderRadius: '4px' }}
             >
               Next Step
@@ -199,7 +214,7 @@ export const Editor: React.FC = () => {
                       backgroundColor: isActive ? '#062f4a' : 'transparent',
                       borderLeft: isActive ? '4px solid #61afef' : '4px solid transparent',
                       paddingLeft: '0.5rem',
-                      transition: 'background-color 0.2s'
+                      transition: 'all 0.3s ease'
                     }}>
                       <span style={{ width: '2.5rem', color: '#858585', userSelect: 'none', borderRight: '1px solid #444', marginRight: '0.75rem', textAlign: 'right', paddingRight: '0.25rem' }}>{idx + 1}</span>
                       <span style={{ whiteSpace: 'pre' }}>{line || ' '}</span>
