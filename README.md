@@ -40,6 +40,8 @@ An interactive, step-by-step algorithm visualizer and custom interpreter. Write 
 - **Algorithm Snippet Library**
 - **Robust Error Contexts**
 
+- (NOT WORKING IN EBRY LANGUAGE)
+
 ## 🛠️ How to run locally
 
 ```bash
