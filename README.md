@@ -2,6 +2,7 @@
 
 An interactive, step-by-step algorithm visualizer and custom interpreter. Write Python-like code, compile it into an Abstract Syntax Tree (AST), and watch the engine execute your code line-by-line while visualizing updates!
 
+
 ## 🚀 What's Done (Phases 1-6)
 
 - **Phase 1: Target Language Subset**
